@@ -47,11 +47,18 @@ export default function RootLayout({
             媒体特性判断不稳定，导致 phone-shell.css 的移动端铺满样式不生效，表现为
             桌面态的手机外壳卡片居中显示、四周留白不对称（见与用户的排障记录）。
             window.AndroidShell 是壳注入的原生桥对象（唯一在普通移动浏览器里不存在、
-            只在这个壳里一定存在的信号），比 UA 字符串嗅探更可靠。必须用同步内联脚本
-            在首次样式计算前就挂上标记，否则会有一帧桌面布局闪烁后才跳转为移动布局。 */}
+            只在这个壳里一定存在的信号），比 UA 字符串嗅探更可靠。
+            同步执行的首次判断覆盖大多数机型；但部分机型（反馈来自华为 nova13pro）
+            的 WebView 内核把 addJavascriptInterface 注入的对象挂上 window 的时机
+            晚于这段 <head> 内联脚本的执行——同步判断那一刻 window.AndroidShell
+            还不存在，一次性检测失败后就再也不会重试，标记永远挂不上、移动端铺满
+            样式永远不生效（与构建产物、CSS 代码本身无关，纯粹是时序竞态）。
+            这里补一层短时轮询兜底：挂标记这个动作本身是幂等的，重复判断/重复
+            setAttribute 不会产生副作用，只在"目前还没挂上"时持续尝试，挂上后
+            立即停止，不常驻定时器。 */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(window.AndroidShell){document.documentElement.setAttribute('data-shell-env','android')}}catch(e){}`,
+            __html: `(function(){function mark(){try{if(window.AndroidShell){document.documentElement.setAttribute('data-shell-env','android');return true}}catch(e){}return false}if(mark())return;var n=0;var t=setInterval(function(){n++;if(mark()||n>50){clearInterval(t)}},100)})();`,
           }}
         />
       </head>
