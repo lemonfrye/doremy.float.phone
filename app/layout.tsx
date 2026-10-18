@@ -58,7 +58,11 @@ export default function RootLayout({
             立即停止，不常驻定时器。 */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){function mark(){try{if(window.AndroidShell){document.documentElement.setAttribute('data-shell-env','android');return true}}catch(e){}return false}if(mark())return;var n=0;var t=setInterval(function(){n++;if(mark()||n>50){clearInterval(t)}},100)})();`,
+            // 壳识别用两路信号：window.AndroidShell（注入时机因内核而异）+
+            // UA 里的 "FloatShell/" 标记（MainActivity 设置，首个脚本执行时就一定在）。
+            // 挂上标记后用 MutationObserver 守住：React 客户端重渲染 <html> 时
+            // 可能清掉根元素上的非 React 属性，被清掉就立刻补回。
+            __html: `(function(){var d=document.documentElement;function isShell(){try{if(window.AndroidShell)return true}catch(e){}return (navigator.userAgent||'').indexOf('FloatShell/')!==-1}function mark(){if(d.getAttribute('data-shell-env')!=='android')d.setAttribute('data-shell-env','android')}function keep(){try{new MutationObserver(mark).observe(d,{attributes:true,attributeFilter:['data-shell-env']})}catch(e){}}if(isShell()){mark();keep();return}var n=0;var t=setInterval(function(){n++;if(isShell()){clearInterval(t);mark();keep()}else if(n>50){clearInterval(t)}},100)})();`,
           }}
         />
       </head>
