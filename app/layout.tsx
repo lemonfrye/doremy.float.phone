@@ -42,6 +42,18 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="float" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="mobile-web-app-capable" content="yes" />
+        {/* 原生安卓壳（android-shell/MainActivity.kt）的 WebView 环境探测。
+            部分设备（如部分华为/鸿蒙 WebView 内核）对 `(hover: none) and (pointer: coarse)`
+            媒体特性判断不稳定，导致 phone-shell.css 的移动端铺满样式不生效，表现为
+            桌面态的手机外壳卡片居中显示、四周留白不对称（见与用户的排障记录）。
+            window.AndroidShell 是壳注入的原生桥对象（唯一在普通移动浏览器里不存在、
+            只在这个壳里一定存在的信号），比 UA 字符串嗅探更可靠。必须用同步内联脚本
+            在首次样式计算前就挂上标记，否则会有一帧桌面布局闪烁后才跳转为移动布局。 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(window.AndroidShell){document.documentElement.setAttribute('data-shell-env','android')}}catch(e){}`,
+          }}
+        />
       </head>
       <body>
         <PWAManifestInjector />
